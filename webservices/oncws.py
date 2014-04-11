@@ -154,12 +154,38 @@ class ArchiveFiles(_ExposedResource):
         
     @ServiceMethod(required=['station','token'])
     def getList(Data):
-        """r= f.getList(station='ENMEF.RA')"""
+        """l=f.getList(station='NC89', deviceCategory='MBROTARYSONAR')"""
         return Data
         
     @ServiceMethod(required=['filename','token'],returnFormat = 'content')
     def getFile(Data):
         return Data
+        
+    def syncDirectory(self,syncDir='.', station=None, deviceCategory=None,
+                        dateFrom=None,dateTo=None,
+                        dateArchivedFrom=None,dateArchivedTo=None,
+                        dataProductFormatId=None):
+        """Syncs a directory of files with files available in ONC archive."""
+        fileList=self.getList(station=station,deviceCategory=deviceCategory,
+                                dateFrom=dateFrom,dateTo=dateTo,
+                                dateArchivedFrom=dateArchivedFrom,
+                                dateArchivedTo=dateArchivedTo,
+                                returnOptions='all')
+        syncedList=list()
+        for aFile in fileList:
+            if dataProductFormatId and \
+                    not aFile['dataProductFormatId'] == dataProductFormatId:
+                continue
+
+            fileName=os.path.join(syncDir,aFile['filename'])
+            if not os.path.isfile(fileName):
+                with open(fileName, 'wb') as outFile:
+                    outFile.write(self.getFile(filename=aFile['filename']))
+                    syncedList.append(fileName)
+        return syncedList
+
+    #f=oncws.ArchiveFiles()
+    #l=f.syncDirectory(station='NC89',deviceCategory='MBROTARYSONAR',dateFrom='2010-05-22T18:31:51.000Z',dateTo='2010-05-23T18:31:51.000Z')
 
 class Stations(_ExposedResource):
     """Interface to the stations service"""
