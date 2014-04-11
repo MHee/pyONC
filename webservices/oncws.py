@@ -15,8 +15,9 @@ import requests     # external requirement: make HTTP easy
 import os
 import json
 
+#
 # Read token from settings file or create one
-
+#
 iniFile=os.path.expanduser(os.path.join('~','.onc.rc'))
 if os.path.isfile(iniFile):
     # Read settings from users home directory
@@ -34,8 +35,9 @@ else:
 token=settings['profiles']['default']['token']     
 baseURL=settings['profiles']['default']['baseURL']
 
-from lxml import etree as ET
-
+#
+# HTTP Server status codes
+#
 status_msgs = {
     400: 'Bad request error. Check if the mandatory parameters are provided.',
     401: 'Unauthorized error. Check if the token is valid.',
@@ -64,14 +66,23 @@ class ServiceMethod(object):
             """http://docs.python-requests.org/en/latest/user/quickstart/
             """
             URL=ServiceObj.baseURL+ServiceObj.servicename
-            params = kwargs
             
+            # Check for keyword arguments that should not be passed on to 
+            # ONC webservice
+            if 'returnFormat' in kwargs.keys():
+                returnFormat=kwargs['returnFormat'].lower()
+                kwargs.pop('returnFormat')
+            else:
+                returnFormat=ServiceObj.returnFormat #'json'
+            
+            params = kwargs
             for pkey in params.keys():
                 # remove unused parameters
                 if params[pkey] == None:
                     params.pop(pkey)
             params['method'] = f.__name__
             params['token'] = ServiceObj.token
+            
             if verbose:
                 print URL
                 print params
@@ -88,21 +99,33 @@ class ServiceMethod(object):
                 print r.url
                 print ServiceObj.baseURL,ServiceObj.servicename, f.__name__,kwargs
                 print kwargs
-            return f(r)
+            
+            if returnFormat == 'json':
+                return f(r.json())
+            elif returnFormat == 'response':
+                return f(r)
+            else:
+                print('Unknown return format %s' % returnFormat)
+                return None
+                
         return wrapped_f
 
 class _ExposedResource(object):
     """Abstract base object with common properties inheritet by webservice resources"""
-    def __init__(self,baseURL=baseURL,token=None):
+    def __init__(self,baseURL=baseURL,token=None,returnFormat=None):
         if verbose:
             print "Abstract init!!!"
+        if returnFormat:
+            self.returnFormat=returnFormat.lower()
+        else:
+           self.returnFormat='json'
             
         self.baseURL=baseURL
         if token:
             self.token=token
         else:
             self.getToken()
-            
+                    
     def getToken(self):
         """If the user access token is unkown help user to find it"""
         #webbrowser('https://dmas.uvic.ca/Profile')
@@ -113,8 +136,8 @@ class _ExposedResource(object):
         
 class ArchiveFiles(_ExposedResource):
     """Interface to the file service"""
-    def __init__(self,baseURL=baseURL,token=None):
-        super(ArchiveFiles,self).__init__(baseURL=baseURL,token=token)
+    def __init__(self,baseURL=baseURL,token=None,returnFormat='json'):
+        super(ArchiveFiles,self).__init__(baseURL=baseURL,token=token,returnFormat=returnFormat)
         self.servicename='archivefiles'
         
     @ServiceMethod(required=['station','token'])
@@ -128,8 +151,8 @@ class ArchiveFiles(_ExposedResource):
 
 class Stations(_ExposedResource):
     """Interface to the stations service"""
-    def __init__(self,baseURL=baseURL,token=None):
-        super(Stations,self).__init__(baseURL=baseURL,token=token)
+    def __init__(self,baseURL=baseURL,token=None,returnFormat='json'):
+        super(Stations,self).__init__(baseURL=baseURL,token=token,returnFormat=returnFormat)
         self.servicename='stations'
         
     @ServiceMethod(required=['token'])
@@ -138,33 +161,11 @@ class Stations(_ExposedResource):
         return Data
         
     def printTree(self,showHidden="false"):
-        nodeTree=self.getTree(showHidden=showHidden)
-        for observatoryRoot in nodeTree.json():
+        nodeTree=self.getTree(showHidden=showHidden,returnFormat='json')
+        for observatoryRoot in nodeTree:
             self._printNode(observatoryRoot)
             print " "
-            
-    def createMindmap(self,showHidden="false"):
-        nodeId=0
-        nodeTree=self.getTree(showHidden=showHidden)
-        map=ET.Element('map')
-        rootNode=ET.SubElement(map,'node',attrib={'TEXT':'Root','ID':'ID_'+str(nodeId)})
-        for observatoryRoot in nodeTree.json:
-            self._addNode(observatoryRoot,rootNode,nodeId)
-        return map
-            
-    def _addNode(self,jsonNode,mapParent,nodeId):
-        nodeId += 1
-        newNode=ET.SubElement(mapParent,'node',attrib={'TEXT':jsonNode['name'],'ID':'ID_'+str(nodeId)})
-        if not jsonNode.has_key('stationCode'):
-            jsonNode['stationCode']=None
-        ET.SubElement(newNode,'attribute',{'NAME':'code', 'VALUE': str(jsonNode['stationCode'])})
-        if 0: #jsonNode.has_key('description'):
-            desc=ET.SubElement(newNode,'richcontent',{'TYPE':"DETAILS"})
-            desc.text=jsonNode['description']
-        childNodes=jsonNode['els'] #.sort(key='desciption')
-        for childNode in childNodes: 
-            self._addNode(childNode,newNode,nodeId)
-            
+                        
     def _printNode(self,node,path=''):
         #print "Node: ", node
         for key in ['name', 'stationCode', 'description', 'deviceCategories', 'els']:
@@ -179,7 +180,36 @@ class Stations(_ExposedResource):
         childNodes=node['els'] #.sort(key='desciption')
         for childNode in childNodes: 
             self._printNode(childNode,path=path)
-        
+
+#
+# Turn station tree into mindmap  
+# (Works, but adds dependencies and should be seperate module)       
+#                
+
+# from lxml import etree as ET
+    #def createMindmap(self,showHidden="false"):
+    #    nodeId=0
+    #    nodeTree=self.getTree(showHidden=showHidden)
+    #    map=ET.Element('map')
+    #    rootNode=ET.SubElement(map,'node',attrib={'TEXT':'Root','ID':'ID_'+str(nodeId)})
+    #    for observatoryRoot in nodeTree.json:
+    #        self._addNode(observatoryRoot,rootNode,nodeId)
+    #    return map
+    #        
+    #def _addNode(self,jsonNode,mapParent,nodeId):
+    #    nodeId += 1
+    #    newNode=ET.SubElement(mapParent,'node',attrib={'TEXT':jsonNode['name'],'ID':'ID_'+str(nodeId)})
+    #    if not jsonNode.has_key('stationCode'):
+    #        jsonNode['stationCode']=None
+    #    ET.SubElement(newNode,'attribute',{'NAME':'code', 'VALUE': str(jsonNode['stationCode'])})
+    #    if 0: #jsonNode.has_key('description'):
+    #        desc=ET.SubElement(newNode,'richcontent',{'TYPE':"DETAILS"})
+    #        desc.text=jsonNode['description']
+    #    childNodes=jsonNode['els'] #.sort(key='desciption')
+    #    for childNode in childNodes: 
+    #        self._addNode(childNode,newNode,nodeId)
+    #                    
+                                        
 # Configureation files:
 # http://stackoverflow.com/questions/7567642/where-to-put-a-configuration-file-in-python
 
