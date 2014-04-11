@@ -14,7 +14,7 @@ verbose=False
 import requests     # external requirement: make HTTP easy
 import os
 import json
-
+from functools import wraps # Make sure decorated functions have updated help
 #
 # Read token from settings file or create one
 #
@@ -62,6 +62,8 @@ class ServiceMethod(object):
         if verbose:
             print "ServiceMethod.__call__"
             print f.__name__
+        
+        @wraps(f)
         def wrapped_f(ServiceObj,**kwargs):
             """http://docs.python-requests.org/en/latest/user/quickstart/
             """
@@ -70,11 +72,16 @@ class ServiceMethod(object):
             # Check for keyword arguments that should not be passed on to 
             # ONC webservice
             if 'returnFormat' in kwargs.keys():
+                # Used return format specifically specified by the user
                 returnFormat=kwargs['returnFormat'].lower()
                 kwargs.pop('returnFormat')
+            elif 'returnFormat' in self.decorator_kwargs.keys():
+                # Use method specific return format default, e.g. "getFile"
+                returnFormat=self.decorator_kwargs['returnFormat'].lower()
             else:
+                # Use default that is set when service was initiated
                 returnFormat=ServiceObj.returnFormat #'json'
-            
+                
             params = kwargs
             for pkey in params.keys():
                 # remove unused parameters
@@ -101,7 +108,12 @@ class ServiceMethod(object):
                 print kwargs
             
             if returnFormat == 'json':
+                #if (f.__name__=='getFile' and ServiceObj.servicename == 'archivefiles'):
+                #    return f(r.content)    
+                #else:
                 return f(r.json())
+            elif returnFormat == 'content':
+                return f(r.content)
             elif returnFormat == 'response':
                 return f(r)
             else:
@@ -145,7 +157,7 @@ class ArchiveFiles(_ExposedResource):
         """r= f.getList(station='ENMEF.RA')"""
         return Data
         
-    @ServiceMethod(required=['filename','token'])
+    @ServiceMethod(required=['filename','token'],returnFormat = 'content')
     def getFile(Data):
         return Data
 
