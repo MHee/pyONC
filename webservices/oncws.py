@@ -180,6 +180,9 @@ class ArchiveFiles(_ExposedResource):
             fileName=os.path.join(syncDir,aFile['filename'])
             if not os.path.isfile(fileName):
                 with open(fileName, 'wb') as outFile:
+                    print('Writing %s (%f MB)' % 
+                        (fileName,aFile['uncompressedFileSize']/(1024.*1024.)))
+                         
                     outFile.write(self.getFile(filename=aFile['filename']))
                     syncedList.append(fileName)
         return syncedList
