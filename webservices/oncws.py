@@ -12,6 +12,7 @@ verbose=False
 
 #import webbrowser   # open browser window for token discovery
 import requests     # external requirement: make HTTP easy
+import urllib # Used to return URL
 import os
 import json
 from functools import wraps # Make sure decorated functions have updated help
@@ -93,6 +94,10 @@ class ServiceMethod(object):
             if verbose:
                 print URL
                 print params
+            if returnFormat == 'url':
+                # Simply return the URL that would be called
+                return URL + '?' + urllib.urlencode(params)
+                
             r=requests.get(URL, params=params)
             if not r.ok:
                 try:
