@@ -195,6 +195,39 @@ class ArchiveFiles(_ExposedResource):
     #f=oncws.ArchiveFiles()
     #l=f.syncDirectory(station='NC89',deviceCategory='MBROTARYSONAR',dateFrom='2010-05-22T18:31:51.000Z',dateTo='2010-05-23T18:31:51.000Z')
 
+class RawData(_ExposedResource):
+    """Interface to the rawdata service"""
+    def __init__(self,baseURL=baseURL,token=None,returnFormat='json'):
+        super(RawData,self).__init__(baseURL=baseURL,token=token,returnFormat=returnFormat)
+        self.servicename='rawdata'
+        
+    @ServiceMethod(required=['station','deviceCategory','token'])
+    def getByStation(Data):
+        """l=f.getByStation(station='NC89', deviceCategory='BPR')"""
+        return Data
+
+class ScalarData(_ExposedResource):
+    """Interface to the scalardata service"""
+    def __init__(self,baseURL=baseURL,token=None,returnFormat='json'):
+        super(ScalarData,self).__init__(baseURL=baseURL,token=token,returnFormat=returnFormat)
+        self.servicename='scalardata'
+        
+    @ServiceMethod(required=['station','deviceCategory','token'],returnFormat='json',outputFormat='Array')
+    def getByStation(Data):
+        """l=f.getByStation(station='NC89', deviceCategory='BPR')"""
+        return Data
+
+class Locations(_ExposedResource):
+    """Interface to the Locations service"""
+    def __init__(self,baseURL=baseURL,token=None):
+        super(Locations,self).__init__(baseURL=baseURL,token=token)
+        self.servicename='locations'
+        
+    @ServiceMethod(required=['token',])
+    def get(Data):
+        """l=f.get(locationCode='NC89', deviceCategoryCode='BPR')"""
+        return Data        
+
 class Stations(_ExposedResource):
     """Interface to the stations service"""
     def __init__(self,baseURL=baseURL,token=None,returnFormat='json'):
@@ -221,8 +254,8 @@ class Stations(_ExposedResource):
         path += '%s/' % node['name']
         #deviceCategories=node['deviceCategories'].sort()
         #print '%s\t%s\t%s\t%s' % (path, node['name'], node['stationCode'],', '.join(node['deviceCategories']))
-        if 'JB' in node['deviceCategories']:
-            print path,', '.join(node['deviceCategories'])
+        #if 'JB' in node['deviceCategories']:
+        print path,', '.join(node['deviceCategories'])
         childNodes=node['els'] #.sort(key='desciption')
         for childNode in childNodes: 
             self._printNode(childNode,path=path)
